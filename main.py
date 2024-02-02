@@ -8,11 +8,12 @@ WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 
-AMMO = 3
+pause=False
 
 pygame.init()
 pygame.mixer.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
+surface=pygame.Surface((WIDTH,HEIGHT),pygame.SRCALPHA)
 pygame.display.set_caption("Meteor Rush")
 clock = pygame.time.Clock()
 
@@ -32,16 +33,6 @@ def draw_shield_bar(surface, x, y, percentage):
     pygame.draw.rect(surface, GREEN, fill)
     pygame.draw.rect(surface, WHITE, border, 2)
 
-def draw_bullets_bar(surface, x, y, ammo):
-    BAR_HEIGHT = 50
-    BAR_LENGTH = AMMO * 20
-    border = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
-    for i in range(ammo):
-        bullet = pygame.Rect(x + (i * 20) + 4, y + 4, 12, BAR_HEIGHT * (0.8))
-        pygame.draw.rect(surface, RED, bullet)
-    
-    pygame.draw.rect(surface, WHITE, border, 2)
-
 def create_meteor():
     meteor = Meteor()
     all_sprites.add(meteor)
@@ -57,7 +48,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.bottom = HEIGHT - 10
         self.speed_x = 0
         self.speed_y = 0
-        self.shield = 200
+        self.shield = 100
 
     def update(self):
         self.speed_x = 0
@@ -83,11 +74,10 @@ class Player(pygame.sprite.Sprite):
             self.rect.bottom = HEIGHT 
     
     def shoot(self):
-        if len(bullets) < AMMO:
-            bullet = Bullet(self.rect.centerx, self.rect.top)
-            all_sprites.add(bullet)
-            bullets.add(bullet)
-            laser_sound.play()
+        bullet = Bullet(self.rect.centerx, self.rect.top)
+        all_sprites.add(bullet)
+        bullets.add(bullet)
+        laser_sound.play()
 
 class Meteor(pygame.sprite.Sprite):
     def __init__(self):
@@ -164,6 +154,11 @@ def show_gameover_screen():
                 waiting = False
                 return False
 
+def draw_pause():
+    pygame.draw.rect(surface, (128, 128, 128, 150), [0, 0, WIDTH, HEIGHT])
+    draw_text(surface, "PAUSED!!", 40, WIDTH // 2, HEIGHT // 2)
+    draw_text(surface,"Press Esc to resume",30,WIDTH//2, HEIGHT*3/4)
+    screen.blit(surface, (0, 0))
 
 # images --------------------
 
@@ -205,7 +200,6 @@ while running:
         game_over = show_gameover_screen()
         if game_over:
             break
-
         all_sprites = pygame.sprite.Group()
         meteor_list = pygame.sprite.Group()
         bullets = pygame.sprite.Group()
@@ -222,40 +216,47 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
+            if event.key == pygame.K_ESCAPE:
+                pause = not pause  # Toggle pause on Escape key press
+            if event.key == pygame.K_SPACE and not pause:
                 player.shoot()
 
-    all_sprites.update()
-
-    # Meteor/laser collisions---
-    hits = pygame.sprite.groupcollide(meteor_list, bullets, True, True)
-    for hit in hits:
-        score += 100
-        explosion_sound.play()
-        explosion = Explosion(hit.rect.center)
-        all_sprites.add(explosion)
-        create_meteor()
-
-    # Check player/meteor collisions
-    hits = pygame.sprite.spritecollide(player, meteor_list, True)
-    if hits:
-        player.shield -= 25
-        create_meteor()
-        if player.shield <= 0:
-            game_over = True
+    if not pause:
+        all_sprites.update()
 
     screen.blit(background, [0, 0])
 
-    all_sprites.draw(screen)
+    if pause:
+        draw_pause()
+    else:
+        # Meteor/laser collisions---
+        hits = pygame.sprite.groupcollide(meteor_list, bullets, True, True)
+        for hit in hits:
+            score += 100
+            explosion_sound.play()
+            explosion = Explosion(hit.rect.center)
+            all_sprites.add(explosion)
+            create_meteor()
 
-    # score highlight ------
-    draw_text(screen, str(score), 25, WIDTH // 2, 10)
+        # Check player/meteor collisions
+        hits = pygame.sprite.spritecollide(player, meteor_list, True)
+        for hit in hits:
+            explosion_sound.play()
+            explosion = Explosion(hit.rect.center)
+            all_sprites.add(explosion)
+            player.shield -= 25
+            create_meteor()
+            if player.shield <= 0:
+                game_over = True
 
-    # shield bar-----
-    draw_shield_bar(screen, 5, 5, player.shield)
+        all_sprites.draw(screen)
 
-    # bullets ------
-    draw_bullets_bar(screen, WIDTH - (20 * AMMO + 5), 5, AMMO - len(bullets))
+        # score highlight ------
+        draw_text(screen, str(score), 25, WIDTH // 2, 10)
+
+        # shield bar-----
+        draw_shield_bar(screen, 5, 5, player.shield)
 
     pygame.display.flip()
+
 pygame.quit()
