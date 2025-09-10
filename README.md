@@ -10,7 +10,7 @@ To execute the game go inside the directory where the game is found and write:
 ```python
 python .\main.py
 ```
-## screnshots :
+## screenshots :
 
 ![alt text](ss/start.png)
 ![alt text](ss/gameplay1.png)
